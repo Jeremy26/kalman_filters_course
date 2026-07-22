@@ -19,10 +19,21 @@ CHI2_95 = {1: 3.841, 2: 5.991, 3: 7.815, 4: 9.488}
 
 
 def rmse(estimates: np.ndarray, truth: np.ndarray) -> np.ndarray:
-    """Per-component RMSE for [px, py, vx, vy]."""
-    estimates = np.asarray(estimates)
-    truth = np.asarray(truth)
-    return np.sqrt(np.mean((estimates - truth) ** 2, axis=0))
+    """Per-component RMSE for [px, py, vx, vy], ignoring NaN ground truth.
+
+    Real nuScenes velocity ground truth is NaN at the first/last keyframe of a
+    track (it is a finite difference), so we mask those out per component.
+    """
+    estimates = np.asarray(estimates, dtype=float)
+    truth = np.asarray(truth, dtype=float)
+    sq = (estimates - truth) ** 2
+    out = np.full(sq.shape[1], np.nan)
+    for i in range(sq.shape[1]):
+        col = sq[:, i]
+        valid = ~np.isnan(col)
+        if valid.any():
+            out[i] = np.sqrt(col[valid].mean())
+    return out
 
 
 def nis_consistency(nis_values: np.ndarray, dof: int) -> float:
@@ -37,11 +48,12 @@ def nis_consistency(nis_values: np.ndarray, dof: int) -> float:
 def summarize(estimates, truth, nis_lidar, nis_radar) -> dict:
     e = rmse(estimates, truth)
     return {
-        "rmse_px": e[0],
-        "rmse_py": e[1],
-        "rmse_vx": e[2],
-        "rmse_vy": e[3],
+        "rmse_px": float(e[0]),
+        "rmse_py": float(e[1]),
+        "rmse_vx": float(e[2]),
+        "rmse_vy": float(e[3]),
         "rmse_pos": float(np.hypot(e[0], e[1])),
+        "rmse_vel": float(np.hypot(e[2], e[3])),
         "nis_lidar_below_95": nis_consistency(nis_lidar, dof=2),
         "nis_radar_below_95": nis_consistency(nis_radar, dof=3),
     }

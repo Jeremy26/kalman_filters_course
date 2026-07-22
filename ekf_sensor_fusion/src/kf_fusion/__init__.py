@@ -8,14 +8,14 @@ See ``run_ekf.py`` for the end-to-end pipeline.
 """
 
 from .ekf import EKF
-from .dataset import Measurement, read_log, iter_log
+from .dataset import Measurement, Track, load_track
 from .pipeline import run_fusion, FusionResult
 
 __all__ = [
     "EKF",
     "Measurement",
-    "read_log",
-    "iter_log",
+    "Track",
+    "load_track",
     "run_fusion",
     "FusionResult",
 ]

@@ -74,9 +74,15 @@ class EKF:
         return self._update(y, H, R)
 
     # -- radar (non-linear) update -----------------------------------------
-    def update_radar(self, z: np.ndarray, R: np.ndarray | None = None) -> float:
+    def update_radar(self, z: np.ndarray, sensor: np.ndarray | None = None,
+                     R: np.ndarray | None = None) -> float:
+        """Correct with a radar return measured about ``sensor`` = (sx, sy).
+
+        On real data the radar rides the moving ego vehicle, so its global
+        origin changes every frame and must be passed in.
+        """
         R = models.RADAR_R if R is None else R
-        H = models.radar_jacobian(self.x)
-        y = z - models.radar_measurement(self.x)
+        H = models.radar_jacobian(self.x, sensor)
+        y = z - models.radar_measurement(self.x, sensor)
         y[1] = models.normalize_angle(y[1])  # wrap the bearing residual
         return self._update(y, H, R)

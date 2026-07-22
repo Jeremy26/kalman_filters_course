@@ -129,6 +129,8 @@ def extract_instance(nusc, instance_token: str, radar_gate_pad: float = 1.0) -> 
             events.append((_sd_time(nusc, rsd), "radar",
                            np.array([rho, phi, rho_dot]), s))
 
+        ann_tok = ann["next"]  # advance to the next keyframe of this track
+
     events.sort(key=lambda e: e[0])
     t0 = events[0][0]
 
@@ -139,12 +141,12 @@ def extract_instance(nusc, instance_token: str, radar_gate_pad: float = 1.0) -> 
         "t0": t0,
         "ev_time": np.array([e[0] - t0 for e in events]),
         "ev_sensor": np.array([e[1] for e in events]),
-        "ev_z": _ragged(np.array([e[2] for e in events], dtype=object)),
-        "ev_extra": _ragged(np.array([e[3] for e in events], dtype=object)),
+        "ev_z": _obj_array([e[2] for e in events]),
+        "ev_extra": _obj_array([e[3] for e in events]),
         "gt_time": np.array([g[0] - t0 for g in gt_states]),
         "gt_state": np.array([g[1:] for g in gt_states]),
         "lidar_pts_time": np.array([t - t0 for t, _ in obj_lidar_pts]),
-        "lidar_pts": np.array([p for _, p in obj_lidar_pts], dtype=object),
+        "lidar_pts": _obj_array([p for _, p in obj_lidar_pts]),
     }
 
 
@@ -152,8 +154,16 @@ def _sd_time(nusc, sd_token: str) -> float:
     return nusc.get("sample_data", sd_token)["timestamp"] / 1e6  # s
 
 
-def _ragged(arr):
-    return arr  # kept as object array; np.savez pickles it
+def _obj_array(items):
+    """Build a 1-D object array of (possibly equal-shaped) sub-arrays.
+
+    ``np.array(list, dtype=object)`` tries to stack when the sub-arrays share a
+    shape; assigning element-by-element keeps them as independent objects.
+    """
+    a = np.empty(len(items), dtype=object)
+    for i, x in enumerate(items):
+        a[i] = x
+    return a
 
 
 def save(track: dict, out: Path) -> None:

@@ -1,14 +1,14 @@
-"""Command-line entry point: run the fusion filter and print a metrics report.
+"""Command-line entry point: run the fusion filter on a real nuScenes track.
 
 Examples
 --------
-Run on the bundled dataset and write a Foxglove recording::
+Run on the bundled real track and write a Foxglove recording::
 
-    python -m kf_fusion.run_ekf --data data/fusion_log.txt --mcap outputs/ekf.mcap
+    python -m kf_fusion.run_ekf --track data/track_ed634e83.npz --mcap outputs/ekf.mcap
 
-Compare lidar-only / radar-only / fused (the classic "why fuse?" experiment)::
+Compare lidar-only / radar-only / fused (the "what does radar add?" experiment)::
 
-    python -m kf_fusion.run_ekf --data data/fusion_log.txt --ablation
+    python -m kf_fusion.run_ekf --track data/track_437fe13d.npz --ablation
 """
 
 from __future__ import annotations
@@ -16,51 +16,46 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .dataset import read_log
+from .dataset import load_track
 from .pipeline import run_fusion
 
 
-def _print_summary(title: str, summary: dict) -> None:
+def _print_summary(title: str, s: dict) -> None:
     print(f"\n=== {title} ===")
-    print(
-        f"  RMSE  px={summary['rmse_px']:.3f}  py={summary['rmse_py']:.3f}  "
-        f"vx={summary['rmse_vx']:.3f}  vy={summary['rmse_vy']:.3f}  "
-        f"(pos={summary['rmse_pos']:.3f} m)"
-    )
-    print(
-        f"  NIS<95%  lidar={summary['nis_lidar_below_95']:.2f}  "
-        f"radar={summary['nis_radar_below_95']:.2f}   (target ~0.95)"
-    )
+    print(f"  RMSE  pos={s['rmse_pos']:.2f} m   vel={s['rmse_vel']:.2f} m/s   "
+          f"(px={s['rmse_px']:.2f} py={s['rmse_py']:.2f} vx={s['rmse_vx']:.2f} vy={s['rmse_vy']:.2f})")
+    print(f"  NIS<95%  lidar={s['nis_lidar_below_95']:.2f}  "
+          f"radar={s['nis_radar_below_95']:.2f}   (target ~0.95)")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument("--track", type=Path, required=True, help="extracted .npz track")
     parser.add_argument("--mcap", type=Path, default=None)
-    parser.add_argument("--noise-ax", type=float, default=9.0)
-    parser.add_argument("--noise-ay", type=float, default=9.0)
+    parser.add_argument("--noise-ax", type=float, default=4.0)
+    parser.add_argument("--noise-ay", type=float, default=4.0)
     parser.add_argument("--ablation", action="store_true",
                         help="Also report lidar-only and radar-only for comparison.")
     args = parser.parse_args()
 
-    measurements = read_log(args.data)
+    track = load_track(args.track)
+    print(f"track: {track.instance[:8]} ({track.category}) — "
+          f"{len(track.measurements)} real measurements")
 
-    fused = run_fusion(measurements, args.noise_ax, args.noise_ay, mcap_path=args.mcap)
+    fused = run_fusion(track, args.noise_ax, args.noise_ay, mcap_path=args.mcap)
     _print_summary("FUSED (lidar + radar)", fused.summary())
     if args.mcap:
         print(f"\n  Wrote Foxglove recording -> {args.mcap}")
         print("  Open it at app.foxglove.dev and load layouts/ekf_fusion.json")
 
     if args.ablation:
-        lidar_only = run_fusion(measurements, args.noise_ax, args.noise_ay,
+        lidar_only = run_fusion(track, args.noise_ax, args.noise_ay,
                                 use_lidar=True, use_radar=False)
-        radar_only = run_fusion(measurements, args.noise_ax, args.noise_ay,
+        radar_only = run_fusion(track, args.noise_ax, args.noise_ay,
                                 use_lidar=False, use_radar=True)
-        _print_summary("LIDAR ONLY (coasts through occlusion)", lidar_only.summary())
-        _print_summary("RADAR ONLY (noisy but never blocked)", radar_only.summary())
-        print("\n  -> Fusion tracks through the lidar occlusion that sinks lidar-only,")
-        print("     while staying far more precise than radar-only.")
+        _print_summary("LIDAR ONLY", lidar_only.summary())
+        _print_summary("RADAR ONLY", radar_only.summary())
 
 
 if __name__ == "__main__":

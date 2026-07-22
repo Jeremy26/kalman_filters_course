@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import numpy as np
 
-# --- Sensor noise (standard deviations reflect typical automotive sensors) ---
-# Lidar is accurate in Cartesian position; radar is noisier in range/bearing
-# but adds a direct velocity observation through range-rate.
-LIDAR_R = np.diag([0.0225, 0.0225])  # (m^2) on px, py
-RADAR_R = np.diag([0.09, 0.0009, 0.09])  # (rho[m^2], phi[rad^2], rho_dot[m^2/s^2])
+# --- Sensor noise, tuned to the REAL nuScenes measurements ---
+# These are not textbook guesses: they come from measuring the extracted
+# lidar-centroid and radar returns against ground truth (see the notebook's
+# noise-analysis cell). The lidar variance is deliberately inflated because the
+# in-box centroid is biased toward the vehicle's visible face by ~1 m -- a real
+# effect we fold into R rather than pretend away.
+LIDAR_R = np.diag([1.0, 1.0])          # (m^2) on px, py  (centroid, biased+noisy)
+RADAR_R = np.diag([0.5, 0.01, 4.0])    # (rho[m^2], phi[rad^2], rho_dot[m^2/s^2])
 
 # Process-noise acceleration (m/s^2)^2 -- how much we let velocity drift between
 # updates. Tuned later in the consistency notebook via NIS; these are sane
@@ -81,33 +84,37 @@ def lidar_measurement(x: np.ndarray) -> np.ndarray:
 
 
 # --- Radar: non-linear measurement model -----------------------------------
-def radar_measurement(x: np.ndarray) -> np.ndarray:
-    """Predicted radar measurement h(x) = [rho, phi, rho_dot] (polar)."""
+# The radar sits on the ego vehicle, which MOVES every frame, so its origin in
+# the global tracking frame is a per-measurement input ``sensor`` = (sx, sy).
+# The measurement is polar about that origin: range, bearing, range-rate.
+def radar_measurement(x: np.ndarray, sensor: np.ndarray = None) -> np.ndarray:
+    """Predicted radar measurement h(x) = [rho, phi, rho_dot] about ``sensor``."""
+    sx, sy = (0.0, 0.0) if sensor is None else (sensor[0], sensor[1])
     px, py, vx, vy = x
-    rho = np.hypot(px, py)
-    phi = np.arctan2(py, px)
-    # Guard the range-rate against a division by zero at the sensor origin.
-    rho = max(rho, 1e-6)
-    rho_dot = (px * vx + py * vy) / rho
+    dx, dy = px - sx, py - sy
+    rho = max(np.hypot(dx, dy), 1e-6)
+    phi = np.arctan2(dy, dx)
+    rho_dot = (dx * vx + dy * vy) / rho
     return np.array([rho, phi, rho_dot])
 
 
-def radar_jacobian(x: np.ndarray) -> np.ndarray:
-    """Jacobian Hj of the radar measurement model, evaluated at ``x``.
+def radar_jacobian(x: np.ndarray, sensor: np.ndarray = None) -> np.ndarray:
+    """Jacobian Hj of the radar model about ``sensor``, evaluated at ``x``.
 
     This linearisation of the polar measurement about the current estimate is
-    the single line that turns a plain KF into an EKF.
+    the single idea that turns a plain KF into an EKF.
     """
+    sx, sy = (0.0, 0.0) if sensor is None else (sensor[0], sensor[1])
     px, py, vx, vy = x
-    c1 = px * px + py * py
-    c1 = max(c1, 1e-6)
+    dx, dy = px - sx, py - sy
+    c1 = max(dx * dx + dy * dy, 1e-6)
     c2 = np.sqrt(c1)
     c3 = c1 * c2
     return np.array(
         [
-            [px / c2, py / c2, 0.0, 0.0],
-            [-py / c1, px / c1, 0.0, 0.0],
-            [py * (vx * py - vy * px) / c3, px * (vy * px - vx * py) / c3, px / c2, py / c2],
+            [dx / c2, dy / c2, 0.0, 0.0],
+            [-dy / c1, dx / c1, 0.0, 0.0],
+            [dy * (vx * dy - vy * dx) / c3, dx * (vy * dx - vx * dy) / c3, dx / c2, dy / c2],
         ]
     )
 
