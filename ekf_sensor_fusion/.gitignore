@@ -8,3 +8,6 @@ outputs/*.mcap
 data/nuscenes/
 
 # Extracted real tracks (small .npz) ARE committed so the filter runs without the dataset.
+
+# YOLO weights (auto-downloaded from Hugging Face)
+models/

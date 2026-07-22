@@ -1,0 +1,48 @@
+{
+  "configById": {
+    "Image!cam": {
+      "cameraTopic": "/camera/image",
+      "annotations": { "/camera/annotations": { "visible": true } },
+      "synchronize": false
+    },
+    "3D!scene": {
+      "followTf": "map",
+      "followMode": "follow-none",
+      "scene": { "transforms": { "showLabel": false } },
+      "topics": {
+        "/lidar": { "visible": true, "colorField": "z", "colorMode": "colormap", "colorMap": "turbo", "pointSize": 1.5 },
+        "/radar": { "visible": true, "colorMode": "flat", "flatColor": "#ff3b3b", "pointSize": 8 },
+        "/track": { "visible": true }
+      },
+      "layers": {
+        "grid": { "layerId": "foxglove.Grid", "visible": true, "size": 400, "divisions": 80 }
+      },
+      "cameraState": { "distance": 90, "perspective": true, "thetaOffset": 0.4, "phi": 0.9 }
+    },
+    "Plot!err": {
+      "title": "Tracking error vs ground truth",
+      "paths": [{ "value": "/error.pos_err", "label": "position error (m)", "enabled": true }],
+      "xAxisVal": "timestamp"
+    },
+    "Plot!speed": {
+      "title": "Estimated speed",
+      "paths": [{ "value": "/state.speed", "label": "speed (m/s)", "enabled": true }],
+      "xAxisVal": "timestamp"
+    }
+  },
+  "layout": {
+    "first": {
+      "first": "Image!cam",
+      "second": "3D!scene",
+      "direction": "row",
+      "splitPercentage": 40
+    },
+    "second": {
+      "first": "Plot!err",
+      "second": "Plot!speed",
+      "direction": "row"
+    },
+    "direction": "column",
+    "splitPercentage": 68
+  }
+}
