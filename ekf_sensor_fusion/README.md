@@ -96,38 +96,60 @@ Colab.)
 
 ## Visualize in Foxglove
 
-1. Open [app.foxglove.dev](https://app.foxglove.dev) → **Open local file** →
-   `outputs/ekf_ed634e83.mcap`.
-2. Import the layout `layouts/ekf_fusion.json`.
-3. Press play and watch, in the map frame:
-   - **white** dots = the real lidar points on the car;
-   - **yellow/red** = the incoming lidar/radar measurement;
-   - **blue** path + translucent sphere = the estimate and its 1-σ covariance;
-   - **orange** = the velocity arrow and the 1-second-ahead prediction;
-   - **green** = ground truth;
-   - the **NIS plot** under its 95% chi-square line = the filter proving it's
-     honest about its own uncertainty.
+There is **one** recording and **one** layout. Nothing else to open.
+
+**Step 1 — get the recording.** Either use the one already in `outputs/`, or
+generate it (needs the dataset, `pip install -e ".[viz,nuscenes]"`):
+
+```bash
+python scripts/download_nuscenes.py                                   # ~4 GB, one time
+python scripts/make_scene_mcap.py --instance ed634e83 --out outputs/scene_ed634e83.mcap
+```
+
+**Step 2 — open it in Foxglove.**
+
+1. Go to **[app.foxglove.dev](https://app.foxglove.dev)** (no install needed).
+2. Click **Open local file** → choose **`outputs/scene_ed634e83.mcap`**
+   *(this is the only file — do not look for any `ekf_*.mcap`)*.
+3. Top-right layout menu → **Import from file…** → choose **`layouts/scene.json`**.
+4. Press **▶ play** (bottom bar).
+
+**Step 3 — what you're looking at.**
+
+| Panel | Shows |
+|-------|-------|
+| **Left — Image** | the real camera, with **green** = the tracked car, **yellow** = other YOLO detections |
+| **Right — 3D** | the real **lidar** cloud (height-colored), **red** radar points, and the **blue box** = the fused estimate tracking the car, with its velocity arrow and 1 s prediction. The view follows the ego car. |
+| **Bottom — Plot** | the fused **speed** estimate over time |
+
+If the 3D panel looks empty: make sure the layout is imported (step 3) — it sets
+the view to follow the `ego` frame; without it the camera sits at the map origin,
+far from the scene.
 
 ## Layout
 
 ```
 ekf_sensor_fusion/
+├── 02_fusion.ipynb           # THE teaching notebook (detection → the filter → fusion)
 ├── data/
 │   ├── track_ed634e83.npz    # REAL dense track (committed, ~36 KB)
 │   ├── track_437fe13d.npz    # REAL sparse-lidar track (committed, ~10 KB)
+│   ├── sample_frames/        # a few real camera frames for the detection demo
 │   └── nuscenes/             # raw dataset (gitignored; via download script)
-├── scripts/download_nuscenes.py
+├── scripts/
+│   ├── download_nuscenes.py  # pull the split from public AWS (anonymous)
+│   └── make_scene_mcap.py    # build the Foxglove recording
 ├── src/kf_fusion/
 │   ├── nuscenes_extract.py   # real lidar+radar extraction from nuScenes
+│   ├── detection.py          # real detectors: YOLO 2D, lidar clustering, 2D→3D, gating
+│   ├── scene.py              # camera-pick single-object tracking + rich MCAP logging
 │   ├── models.py             # F, Q, lidar/radar models + radar Jacobian
 │   ├── ekf.py                # the EKF (predict / update_lidar / update_radar)
 │   ├── dataset.py            # .npz track loader
 │   ├── pipeline.py           # run_fusion(): end-to-end loop + sensor ablation
-│   ├── metrics.py            # RMSE + NIS consistency
-│   ├── viz_foxglove.py       # MCAP logging for Foxglove
 │   └── run_ekf.py            # CLI
 ├── tests/test_ekf.py         # 6 tests on the real tracks
-└── layouts/ekf_fusion.json   # Foxglove layout
+└── layouts/scene.json        # the one Foxglove layout
 ```
 
 ## Where this sits in the course

@@ -37,7 +37,6 @@ def run_fusion(
     track: Track | str | Path,
     noise_ax: float = 4.0,
     noise_ay: float = 4.0,
-    mcap_path: str | Path | None = None,
     use_lidar: bool = True,
     use_radar: bool = True,
 ) -> FusionResult:
@@ -46,11 +45,12 @@ def run_fusion(
     Parameters
     ----------
     track : a loaded :class:`Track`, or a path to an extracted ``.npz``.
-    noise_ax, noise_ay : process-noise acceleration (tune with NIS).
-    mcap_path : if given, also write a Foxglove MCAP recording.
+    noise_ax, noise_ay : process-noise acceleration.
     use_lidar, use_radar : which sensors may *correct* the filter. A disabled
         sensor still advances time (predict-only), so every configuration is
         scored on the same timeline -- the fair way to ask "what does radar add?"
+
+    For a Foxglove recording of the full scene, use ``scripts/make_scene_mcap.py``.
     """
     if isinstance(track, (str, Path)):
         track = load_track(track)
@@ -62,46 +62,30 @@ def run_fusion(
     nis_lidar: list[float] = []
     nis_radar: list[float] = []
 
-    logger = None
-    if mcap_path is not None:
-        from .viz_foxglove import FoxgloveLogger
-
-        logger = FoxgloveLogger(mcap_path, track)
-
     def allowed(sensor: str) -> bool:
         return use_lidar if sensor == "lidar" else use_radar
 
     last_t = None
-    try:
-        for m in track.measurements:
-            if not ekf.initialized:
-                if not allowed(m.sensor):
-                    continue
-                ekf.initialize(m.initial_state(), P0=np.diag([2.0, 2.0, 100.0, 100.0]))
-                last_t = m.timestamp
-                nis = None
+    for m in track.measurements:
+        if not ekf.initialized:
+            if not allowed(m.sensor):
+                continue
+            ekf.initialize(m.initial_state(), P0=np.diag([2.0, 2.0, 100.0, 100.0]))
+            last_t = m.timestamp
+        else:
+            ekf.predict(m.timestamp - last_t)
+            last_t = m.timestamp
+            if not allowed(m.sensor):
+                pass
+            elif m.sensor == "lidar":
+                nis_lidar.append(ekf.update_lidar(m.z))
             else:
-                ekf.predict(m.timestamp - last_t)
-                last_t = m.timestamp
-                if not allowed(m.sensor):
-                    nis = None
-                elif m.sensor == "lidar":
-                    nis = ekf.update_lidar(m.z)
-                    nis_lidar.append(nis)
-                else:
-                    nis = ekf.update_radar(m.z, sensor=m.sensor_pos)
-                    nis_radar.append(nis)
+                nis_radar.append(ekf.update_radar(m.z, sensor=m.sensor_pos))
 
-            estimates.append(ekf.x.copy())
-            truth.append(m.gt.copy())
-            times.append(m.timestamp)
-            sensors.append(m.sensor)
-
-            if logger is not None:
-                logger.log_step(m, ekf.x, ekf.P, nis)
-    finally:
-        if logger is not None:
-            logger.close()
+        estimates.append(ekf.x.copy())
+        truth.append(m.gt.copy())
+        times.append(m.timestamp)
+        sensors.append(m.sensor)
 
     return FusionResult(
         estimates=np.asarray(estimates),

@@ -32,7 +32,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--track", type=Path, required=True, help="extracted .npz track")
-    parser.add_argument("--mcap", type=Path, default=None)
     parser.add_argument("--noise-ax", type=float, default=4.0)
     parser.add_argument("--noise-ay", type=float, default=4.0)
     parser.add_argument("--ablation", action="store_true",
@@ -43,11 +42,10 @@ def main() -> None:
     print(f"track: {track.instance[:8]} ({track.category}) — "
           f"{len(track.measurements)} real measurements")
 
-    fused = run_fusion(track, args.noise_ax, args.noise_ay, mcap_path=args.mcap)
+    fused = run_fusion(track, args.noise_ax, args.noise_ay)
     _print_summary("FUSED (lidar + radar)", fused.summary())
-    if args.mcap:
-        print(f"\n  Wrote Foxglove recording -> {args.mcap}")
-        print("  Open it at app.foxglove.dev and load layouts/ekf_fusion.json")
+    print("\n  For a Foxglove recording of the full scene (camera + lidar + radar +")
+    print("  tracking), run: python scripts/make_scene_mcap.py")
 
     if args.ablation:
         lidar_only = run_fusion(track, args.noise_ax, args.noise_ay,
