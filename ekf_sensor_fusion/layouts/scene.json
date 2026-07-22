@@ -6,27 +6,21 @@
       "synchronize": false
     },
     "3D!scene": {
-      "followTf": "map",
-      "followMode": "follow-none",
-      "scene": { "transforms": { "showLabel": false } },
+      "followTf": "ego",
+      "followMode": "follow-position",
       "topics": {
-        "/lidar": { "visible": true, "colorField": "z", "colorMode": "colormap", "colorMap": "turbo", "pointSize": 1.5 },
-        "/radar": { "visible": true, "colorMode": "flat", "flatColor": "#ff3b3b", "pointSize": 8 },
+        "/lidar": { "visible": true, "colorField": "z", "colorMode": "colormap", "colorMap": "turbo", "pointSize": 2 },
+        "/radar": { "visible": true, "colorMode": "flat", "flatColor": "#ff3b3b", "pointSize": 10 },
         "/track": { "visible": true }
       },
       "layers": {
-        "grid": { "layerId": "foxglove.Grid", "visible": true, "size": 400, "divisions": 80 }
+        "grid": { "layerId": "foxglove.Grid", "visible": true, "size": 200, "divisions": 40 }
       },
-      "cameraState": { "distance": 90, "perspective": true, "thetaOffset": 0.4, "phi": 0.9 }
-    },
-    "Plot!err": {
-      "title": "Tracking error vs ground truth",
-      "paths": [{ "value": "/error.pos_err", "label": "position error (m)", "enabled": true }],
-      "xAxisVal": "timestamp"
+      "cameraState": { "distance": 60, "perspective": true, "thetaOffset": 0.5, "phi": 0.85 }
     },
     "Plot!speed": {
-      "title": "Estimated speed",
-      "paths": [{ "value": "/state.speed", "label": "speed (m/s)", "enabled": true }],
+      "title": "Fused speed estimate (m/s)",
+      "paths": [{ "value": "/state.speed", "label": "speed", "enabled": true }],
       "xAxisVal": "timestamp"
     }
   },
@@ -35,14 +29,10 @@
       "first": "Image!cam",
       "second": "3D!scene",
       "direction": "row",
-      "splitPercentage": 40
+      "splitPercentage": 42
     },
-    "second": {
-      "first": "Plot!err",
-      "second": "Plot!speed",
-      "direction": "row"
-    },
+    "second": "Plot!speed",
     "direction": "column",
-    "splitPercentage": 68
+    "splitPercentage": 72
   }
 }
