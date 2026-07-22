@@ -167,7 +167,9 @@ def _obj_array(items):
 
 
 def save(track: dict, out: Path) -> None:
-    np.savez(out, allow_pickle=True, **track)
+    # Object arrays (ragged measurements / point sets) are pickled by savez by
+    # default; load them back with np.load(..., allow_pickle=True).
+    np.savez(out, **track)
 
 
 def main() -> None:

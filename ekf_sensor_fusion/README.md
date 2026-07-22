@@ -81,7 +81,10 @@ python -m kf_fusion.nuscenes_extract --instance ed634e83 \
 ### Colab
 
 ```python
-!git clone https://github.com/Jeremy26/kalman_filters_course.git
+# NOTE: the course code currently lives on a feature branch, so clone THAT branch
+# (a plain clone checks out master, which does not have this project yet).
+!git clone --branch claude/course-modernization-review-x6ytmr \
+    https://github.com/Jeremy26/kalman_filters_course.git
 %cd kalman_filters_course/ekf_sensor_fusion
 !pip install -e ".[viz]" -q
 !python -m kf_fusion.run_ekf --track data/track_437fe13d.npz --ablation
