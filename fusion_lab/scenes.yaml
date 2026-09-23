@@ -1,0 +1,18 @@
+# Scenes and target objects prepared by `python -m prep`.
+# All three are in the official nuScenes val split, so the public detector
+# outputs on them are genuine predictions, not predictions on training data.
+nuscenes_version: v1.0-mini
+scenes:
+  - name: scene-0553
+    target: 2e19253f3bac458191cf64ff2b22ba2b   # vehicle.bus.rigid
+    lesson: >-
+      Occlusion, then a sharp turn, then the bus drives away beyond LiDAR range
+      while RADAR keeps seeing it.
+  - name: scene-0916
+    target: 8a26f7d33ff04b1a8c8679f8c4a7da91   # vehicle.bus.rigid
+    lesson: >-
+      Clean sharp turn (about 94 deg) close to the ego car. Compare CV and CTRV.
+  - name: scene-0103
+    target: 200c440c0e9b4627ad4f3047227016a2   # vehicle.car
+    lesson: >-
+      Distant object: the car drives away from 19 to 86 m and the sensors fade out.

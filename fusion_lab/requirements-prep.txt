@@ -1,0 +1,4 @@
+# nuscenes-devkit brings numpy, opencv-python-headless (used for YOLOX), scikit-learn
+# (DBSCAN), pyquaternion and matplotlib.
+nuscenes-devkit==1.2.0
+pyyaml>=6
