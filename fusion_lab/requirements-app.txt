@@ -1,5 +1,0 @@
-gradio==6.28.0
-rerun-sdk==0.38.1
-numpy>=2,<3
-# gradio_rerun is installed with --no-deps (see docker/app.Dockerfile): its declared
-# dependencies include opencv-python and twine, which it never imports.
