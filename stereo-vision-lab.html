@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 :root{
   --void:#0a1f2c; --deep:#0d2836; --panel:#103043; --line:#24566a; --card:rgba(9,32,45,.78);
@@ -635,7 +635,7 @@ const SCENE_DATA={"fire": [{"name": "Frame 1", "id": "00180", "left": "data:imag
    ============================================================ */
 const $=id=>document.getElementById(id);
 const f2=(v,n=2)=>Number(v).toFixed(n);
-const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 
 /* real machine-vision cameras, published specs */
@@ -3264,7 +3264,8 @@ function applyCalibFile(text,name){
   if(p.b)S.rig.b=p.b;
   if(p.W)S.rig.W=p.W;
   if(p.H)S.rig.H=p.H;
-  S.rig.name=name.replace(/\.[^.]+$/,'');
+  // the file name is shown in many places as HTML: keep only plain characters so a crafted name cannot inject markup
+  S.rig.name=String(name).replace(/\.[^.]+$/,'').replace(/[^\w .()\-]/g,'').trim().slice(0,40)||'your rig';
   S.rig.src=p.src||'your file';
   S.rig.tag='from your calibration file';
   toast('Read '+(p.src||'calibration')+': f = '+f2(p.f,1)+' px'+(p.b?', b = '+f2(p.b,3)+' m':''));
