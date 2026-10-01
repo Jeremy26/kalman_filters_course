@@ -748,17 +748,19 @@ const labFloor=(()=>{const N=1024,c=document.createElement('canvas');c.width=c.h
   const m=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshBasicMaterial({map:t}));
   m.rotation.x=-Math.PI/2;m.position.set(0,-.01,-40);scene.add(m);return m;})();
 
+function fitFont(x,txt){let px=30;x.font='700 30px Space Grotesk, sans-serif';x.shadowColor='rgba(4,18,28,.95)';x.shadowBlur=7;   // dark halo: labels stay readable on the light floor   // long labels shrink instead of being cut
+  const w=x.measureText(txt).width;if(w>212){px=Math.max(12,Math.floor(30*212/w));x.font='700 '+px+'px Space Grotesk, sans-serif';}}
 function spriteTag(txt,col){
   const c=document.createElement('canvas');c.width=220;c.height=54;
-  const x=c.getContext('2d');x.font='700 30px Space Grotesk, sans-serif';
+  const x=c.getContext('2d');fitFont(x,txt);
   x.fillStyle=col;x.textAlign='center';x.textBaseline='middle';x.fillText(txt,110,27);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));s.renderOrder=20;   // labels never cut holes in the see-through FOV
   s.scale.set(4.4,1.08,1);s.userData.t=txt;return s;
 }
 function setSpriteTag(s,txt,col){
   if(s.userData.t===txt)return;s.userData.t=txt;
   const c=document.createElement('canvas');c.width=220;c.height=54;
-  const x=c.getContext('2d');x.font='700 30px Space Grotesk, sans-serif';
+  const x=c.getContext('2d');fitFont(x,txt);
   x.fillStyle=col;x.textAlign='center';x.textBaseline='middle';x.fillText(txt,110,27);
   if(s.material.map)s.material.map.dispose();
   s.material.map=new THREE.CanvasTexture(c);s.material.needsUpdate=true;
@@ -1130,7 +1132,7 @@ const ghostCar=OBJDEFS.car.build(new THREE.MeshStandardMaterial({color:0xf2a541,
 ghostCar.traverse(n=>{if(n.material){n.material=n.material.clone();n.material.transparent=true;n.material.opacity=.35;n.material.depthWrite=false;}});ghostCar.visible=false;scene.add(ghostCar);
 const ghostTag=spriteTag('','#f2c076');ghostTag.visible=false;scene.add(ghostTag);
 function showGhost(Z,far){ghostCar.visible=ghostTag.visible=!!Z;if(!Z||!far)return;ghostCar.position.set(far.x,0,-Z);
-  setSpriteTag(ghostTag,'your measurement: '+f2(Z,1)+' m','#f2c076');ghostTag.position.set(far.x,2.6,-Z);const k=Math.max(0.3,Math.min(1.1,view.position.distanceTo(ghostCar.position)/45));ghostTag.scale.set(3.2*k,.79*k,1);
+  setSpriteTag(ghostTag,'measured '+f2(Z,1)+' m','#f2c076');ghostTag.position.set(far.x,2.6,-Z);const k=Math.max(0.6,Math.min(1.6,view.position.distanceTo(ghostCar.position)/30));ghostTag.scale.set(4.4*k,1.08*k,1);
   if(S.ghostFly==null||Math.abs(S.ghostFly-Z)>Math.max(4,far.z*0.08)){S.ghostFly=Z;const mid=(Z+far.z)/2,span=Math.abs(Z-far.z);   // frame both the real car and where stereo puts it
     flyTo({th:-0.9,ph:1.15,r:Math.max(13,span*0.95+10),cx:far.x,cy:-1.2,cz:-mid},1200);}}
 const rayGhosts=[0,1].map(()=>{const g=OBJDEFS.car.build(new THREE.MeshBasicMaterial({color:0x59c8dd,transparent:true,opacity:.35,depthWrite:false}));
@@ -1382,7 +1384,7 @@ addEventListener('orientationchange',onViewportChange);
 document.addEventListener('fullscreenchange',onViewportChange);
 document.addEventListener('webkitfullscreenchange',onViewportChange);
 if(window.ResizeObserver){try{new ResizeObserver(onViewportChange).observe(glHost);}catch(e){}}
-function loop(){stepFly();anim();sync();renderer.render(scene,view);requestAnimationFrame(loop);}
+function loop(){stepFly();anim();sync();if(S.screen==='work')renderer.render(scene,view);requestAnimationFrame(loop);}   // the 3D view is hidden on other screens: do not draw it
 
 /* a lost WebGL context comes back blank; rebuild what we own */
 cv3.addEventListener('webglcontextlost',e=>{e.preventDefault();},false);
@@ -1808,18 +1810,22 @@ function objIcon(k){
 function goHome(){S.flow=null;S.screen='home';show('home');try{$('home').scrollTop=0;window.scrollTo(0,0);}catch(e){}renderPalette(false);showStrip(false);setCrumbs();}
 
 /* =============== FLOW: simulator =============== */
-function startSim(){
+function startSim(){resetSim();show('work');rebuildFrustums();renderStep();introTour();}
+/* a clean simulator: nothing chosen, nothing measured. Used by the start and by every Part tab */
+function resetSim(){
+  clearTimeout(S.tourT);flyState=null;document.querySelectorAll('.stackov').forEach(o=>o.remove());if(typeof geoOff==='function')geoOff();
+  S.p2ph=null;S.bLog={};S.dLog={};S.geoZ=null;S.geoZ0=null;S.pairsShown=false;S.simB=0.20;
+  S.p3ph=null;S.pixErr=-1;S.pixZ=null;S.pixZ0=null;S.ghostFly=null;S.savedPicks=null;S.lastMeasure=null;S.wideDone=false;
   S.flow='sim';S.intro=0;S.rayFlown=false;S.codeInit=false;S.mis=null;S.step=STEP.S_JOB;S.job=null;S.claim=null;S.p1ok=false;S.p1Flown=false;S.claim2=null;S.p2ok=false;S.matched=false;S.measureOK=false;S.rigZoom=false;clearSim();
   S.simCam=null;S.simCamKey=null;S.simCamCount=1;S.simLens=6;
   S.pickL=S.pickR=null;S.imgL=S.imgR=null;S.guessed=false;
   setEnv('lab');buildArcs(null);clearPlatform();
-  show('work');renderPalette(false);showStrip(false);
+  renderPalette(false);showStrip(false);
   // chapter 1 starts in the traffic-light scene, no menu of use cases
   S.job='light';S.p1phase='light';S.wideLens=null;S.farLens=null;S.placing=null;S.stackShown=false;
   const car=addSimObject('car',0,80);car.userData.brief='far';
   const lt=addSimObject('light',LIGHT.x,LIGHT.z);lt.userData.brief='light';setTarget(car);
   S.simCam=null;S.simCamKey=null;S.simLens=6;S.lensPicked=false;S.p1intro=true;S.step=STEP.S_CAMERA;   // the student picks camera and lens, nothing preselected
-  rebuildFrustums();renderStep();introTour();
 }
 function introTour(){   // fly from behind your car down to the light, then back to see both
   Object.assign(orb,{th:0,ph:1.42,r:5,cx:0,cy:1.2,cz:-6});flyState=null;
@@ -2502,19 +2508,16 @@ function renderParts(){const nav=$('parts');if(!nav)return;const cur=curPart();
 /* jump to any part: fill in sensible choices for the parts skipped, so the scene is complete */
 function goPart(n){
   if(S.flow!=='sim'||!S.job)return;
-  if(S.screen!=='work')show('work');
-  geoOff();S.placing=null;document.querySelectorAll('.stackov').forEach(o=>o.remove());
-  if(n>=2&&!S.p1ok){S.simCam=Object.assign({},AUTO_CAMS.ar023z);S.simCamKey='ar023z';S.lensPicked=true;
-    S.farLens=12;S.wideLens=2.8;S.p1ok=true;S.wideDone=true;S.p1phase='wide';S.p1intro=false;S.stackShown=true;}
-  if(n>=2){const has=k=>briefObjs().some(u=>u.brief===k);   // the objects Part 1 places: the car at the crossing and the pedestrian next to you
-    if(!has('cross')){const o=addSimObject('car',14.5,76);o.userData.brief='cross';}
-    if(!has('near')){const o=addSimObject('pedestrian',2.8,4.4);o.userData.brief='near';}}
-  if(n===1){S.simCamCount=1;S.step=STEP.S_CAMERA;S.intro=1;if(S.farLens)S.simLens=S.farLens;}
-  else if(n===2){S.simLens=S.farLens;S.simCamCount=1;S.step=STEP.S_RAY1;S.intro=2;}
-  else{S.simLens=S.farLens;const lim=bLimits();
-    if(!(S.simB>=lim.min&&S.simB<=lim.max))S.simB=Math.round((lim.min+lim.max)/2*10)/10;
-    S.simCamCount=2;S.p2ph='pick';placeSimCamera();S.p3ph=null;S.step=STEP.S_CROSS;S.pickL=S.pickR=null;S.matched=false;S.measureOK=false;S.intro=3;}
-  rebuildFrustums();renderStep();if(n===1)viewP1();else if(n===2)viewJob();else viewFar();}
+  if(n===1){startSim();return;}                      // Part 1 always starts from nothing
+  resetSim();show('work');                           // Parts 2 and 3 also start clean, with default choices for the parts before
+  S.simCam=Object.assign({},AUTO_CAMS.ar023z);S.simCamKey='ar023z';S.lensPicked=true;
+  S.farLens=12;S.wideLens=2.8;S.simLens=12;S.p1ok=true;S.wideDone=true;S.p1phase='wide';S.p1intro=false;S.stackShown=true;
+  {const o=addSimObject('car',14.5,76);o.userData.brief='cross';}     // the objects Part 1 places
+  {const o=addSimObject('pedestrian',2.8,4.4);o.userData.brief='near';}
+  if(n===2){S.simCamCount=1;S.step=STEP.S_RAY1;S.intro=2;}
+  else{const lim=bLimits();S.simB=Math.round((lim.min+lim.max)/2*10)/10;S.p2ok=true;
+    S.simCamCount=2;S.p2ph='pick';placeSimCamera();S.step=STEP.S_CROSS;S.pickL=S.pickR=null;S.matched=false;S.measureOK=false;S.intro=3;}
+  rebuildFrustums();renderStep();if(n===2)viewJob();else viewFar();}
 function renderStep(){
   clearFormula();if(typeof dragTag!=='undefined')dragTag.visible=false;if(typeof showRayGhosts==='function')showRayGhosts(false);if(S.step!==STEP.S_CROSS&&typeof ghostCar!=='undefined'){ghostCar.visible=ghostTag.visible=false;S.ghostFly=null;}if(S.step!==STEP.S_CAMERA2&&!(S.step===STEP.S_CROSS&&S.p3ph==='pix'))geoOff();if(S.flow==='sim'&&S.job==='light')renderDropPalette(null);
   setCrumbs();renderParts();renderTags();drawMarks();
@@ -3401,13 +3404,16 @@ function aggregate(vol,W,H,maxD,P1,P2){const tot=new Float32Array(W*H*maxD),agg=
     for(let i=0;i<tot.length;i++)tot[i]+=agg[i];});return tot;}
 /* no match: show the left photo in dim grey so the map stays readable; the left band (x < dead) can never be matched, so it is cropped */
 function noMatch(img,o,g){const v=g?Math.round(28+g*.32):30;img.data[o]=v;img.data[o+1]=v;img.data[o+2]=v+6;img.data[o+3]=255;}
+/* the left band, numDisparities wide: the matcher has no room to look that far left in the right camera */
+function deadBand(img,o,g,px,y){const h=((px+y)%8)<2,v=g?Math.round(12+g*.12):14;img.data[o]=h?70:v;img.data[o+1]=h?52:v;img.data[o+2]=h?40:v+4;img.data[o+3]=255;}
 function fitMap(cv){if(!cv||!cv.width)return;const box=cv.closest('.bigmap');if(!box)return;
   const maxW=box.clientWidth-2,maxH=Math.min(innerHeight*.4,340),k=Math.min(maxW/cv.width,maxH/cv.height);
   cv.style.width=Math.round(cv.width*k)+'px';cv.style.height=Math.round(cv.height*k)+'px';}
 addEventListener('resize',()=>fitMap($('depthCanvas')));
-function paintDisp(canvas,disp,W,H,maxD,dead,G){const CW=W-dead;canvas.width=CW;canvas.height=H;
-  const x=canvas.getContext('2d'),img=x.createImageData(CW,H);
-  for(let y=0;y<H;y++)for(let px=dead;px<W;px++){const i=y*W+px,o=(y*CW+px-dead)*4;
+function paintDisp(canvas,disp,W,H,maxD,dead,G){canvas.width=W;canvas.height=H;
+  const x=canvas.getContext('2d'),img=x.createImageData(W,H);
+  for(let y=0;y<H;y++)for(let px=0;px<W;px++){const i=y*W+px,o=i*4;
+    if(px<dead){deadBand(img,o,G&&G[i],px,y);continue;}
     if(!(disp[i]>0)){noMatch(img,o,G&&G[i]);continue;}
     const t=Math.max(0,Math.min(1,disp[i]/maxD));
     img.data[o]=Math.round(255*Math.min(1,1.7*t));img.data[o+1]=Math.round(255*Math.max(0,Math.min(1,1.7*t-.6)));
@@ -3426,13 +3432,14 @@ function depthColor(Z,zmin,zmax){
   return [r,g,b];
 }
 function paintDepth(canvas,disp,W,H,fs,b,dead,reveal,G){
-  const CW=W-dead;canvas.width=CW;canvas.height=H;
-  const x=canvas.getContext('2d'),img=x.createImageData(CW,H);
+  canvas.width=W;canvas.height=H;
+  const x=canvas.getContext('2d'),img=x.createImageData(W,H);
   const rows=reveal===undefined?H:Math.round(H*reveal);
   const zs=[];for(let i=0;i<W*H;i+=7)if(disp[i]>0&&(i%W)>=dead)zs.push(fs*b/disp[i]);zs.sort((a,c)=>a-c);   // colour range from this scene
   const ZR=zs.length?[zs[Math.floor(zs.length*.03)],zs[Math.floor(zs.length*.97)]]:[1,60];if(ZR[1]-ZR[0]<1)ZR[1]=ZR[0]+1;
-  for(let y=0;y<H;y++)for(let px=dead;px<W;px++){
-    const i=y*W+px,o=(y*CW+px-dead)*4;
+  for(let y=0;y<H;y++)for(let px=0;px<W;px++){
+    const i=y*W+px,o=i*4;
+    if(px<dead){deadBand(img,o,G&&G[i],px,y);continue;}
     if(y>rows){noMatch(img,o,G&&G[i]);continue;}
     const d=disp[i];
     if(!(d>0)){noMatch(img,o,G&&G[i]);continue;}
@@ -3469,7 +3476,7 @@ function animateToDepth(){
     }
     if(k<1)requestAnimationFrame(step);
     else{
-      cap.textContent='Depth map: depth = f\u00b7b / disparity, for every pixel. Warm = near, cool = far, grey photo = no reliable match. Hover the map to read the depth.';
+      cap.textContent='Depth map: depth = f\u00b7b / disparity, for every pixel. Warm = near, cool = far, grey photo = no reliable match, striped band on the left = no room to search. Hover the map to read the depth.';
       if((S.flow==='real'||S.lastMeasure)&&!$('finishCh')){const tb=$('toDepth'),fb=document.createElement('button');fb.className='big pulse';fb.id='finishCh';fb.textContent='Finish the chapter';
         fb.onclick=S.flow==='real'?showRealEnd:showChapterEnd;if(tb){tb.style.display='none';tb.after(fb);}}
       const pub=null;if(pub){
@@ -3490,14 +3497,14 @@ function attachHover(){
   cv.onmousemove=e=>{
     const D=S.dispData;if(!D){tip.style.display='none';return;}
     const r=cv.getBoundingClientRect();
-    const px=D.dead+Math.floor((e.clientX-r.left)/r.width*(D.W-D.dead));
+    const px=Math.floor((e.clientX-r.left)/r.width*D.W);
     const py=Math.floor((e.clientY-r.top)/r.height*D.H);
     if(px<0||py<0||px>=D.W||py>=D.H){tip.style.display='none';return;}
     const d=D.disp[py*D.W+px];
     tip.style.display='block';
     tip.style.left=(e.clientX-r.left+14)+'px';
     tip.style.top=(e.clientY-r.top+14)+'px';
-    tip.innerHTML = d ? ('d = '+f2(d,1)+' px<br><b>Z = '+f2(D.fs*D.b/d,2)+' m</b>')
+    tip.innerHTML = px<D.dead ? 'left band<br><b>no room to search '+S.numDisp+' px to the left</b>' : d>0 ? ('d = '+f2(d,1)+' px<br><b>Z = '+f2(D.fs*D.b/d,2)+' m</b>')
                       : 'no match here<br><b>depth unknown</b>';
   };
   cv.onmouseleave=()=>{tip.style.display='none';};
@@ -3601,7 +3608,7 @@ const MISSIONS=[
   {k:'blockSize',v:3,t:'Make a bad map: set <b>blockSize</b> to 3.',q:'The map is full of noise. Why?',o:['A 3\u00d73 square is tiny. Many places look the same, so the computer picks the wrong one.','The cameras are too far apart.','The image is too dark.'],a:0,h:'Think about how many places in the image look like a tiny 3\u00d73 square.'},
   {k:'blockSize',v:15,t:'Now set <b>blockSize</b> to 15.',q:'Less noise, but the edges of the car spread out. Why?',o:['The computer is too slow.','A big square mixes the car and the road behind it.','The lens changed.'],a:1,h:'A 15\u00d715 square on the edge of the car contains both car and road.'},
   {k:'numDisp',v:16,t:'Set <b>numDisparities</b> to 16.',q:'Things close to you turn grey (no match). Why?',o:['Close things have no texture.','The cameras are too close together.','Close things have a disparity above 16 px, and the computer only looks 16 px away.'],a:2,h:'Remember Part 2: close things have a big disparity d.'},
-  {k:'numDisp',v:256,t:'Set <b>numDisparities</b> to 256.',q:'Close things come back, but the map loses a band on its left side. Why?',o:['Near the left edge, there is no room to look 256 px further left in the right camera.','256 is too slow.','The left camera sees less light.'],a:0,h:'For a pixel 50 px from the left edge, can the computer look 256 px to its left?'}];
+  {k:'numDisp',v:256,t:'Set <b>numDisparities</b> to 256.',q:'Close things come back, but the striped band on the left gets wider. Why?',o:['Near the left edge, there is no room to look 256 px further left in the right camera.','256 is too slow.','The left camera sees less light.'],a:0,h:'For a pixel 50 px from the left edge, can the computer look 256 px to its left?'}];
 function renderMission(){const el=$('mission');if(!el)return;S.mis=S.mis||{i:0,ans:null};const m=MISSIONS[S.mis.i];
   if(!m){el.innerHTML='<div class="mh">Your turn</div><div class="mt">Pick the settings that give the cleanest map, then turn it into depth.</div>';return;}
   const reached=S[m.k]===m.v&&S.misRan===m.k+m.v;
@@ -3666,12 +3673,12 @@ function runCode(){
     const cbtn=$('toDepth');if(cbtn)cbtn.disabled=false;
     const st=$('convStage');if(st)st.innerHTML='';
     attachHover();
-    const dd=maxD+half;let holes=0,tot=0;for(let i=0;i<disp.length;i++){if(i%L.W<dd)continue;tot++;if(!(disp[i]>0))holes++;}holes=holes/Math.max(1,tot)*100;   // the cropped left band is not counted
+    const dd=maxD+half;let holes=0,tot=0;for(let i=0;i<disp.length;i++){if(i%L.W<dd)continue;tot++;if(!(disp[i]>0))holes++;}holes=holes/Math.max(1,tot)*100;   // the left band is counted apart
     const nearest=c.f*c.b/S.numDisp;
     S.misRan=(MISSIONS[(S.mis||{i:0}).i]||{k:''}).k+S[(MISSIONS[(S.mis||{i:0}).i]||{k:'x'}).k];renderMission();
     cap.textContent=(S.card==='bm'
-      ?`Grey photo = no reliable match on ${f2(holes,0)}% of the image (flat areas like the sky, or several equally good matches). Minimum depth: ${f2(nearest,1)} m.`
-      :`Grey photo = no reliable match on ${f2(holes,0)}% of the image. Raise P2: smoother. Lower P2: more noise.`);
+      ?`Grey photo = no reliable match on ${f2(holes,0)}% of the image (flat areas like the sky, or several equally good matches). Minimum depth: ${f2(nearest,1)} m. Striped band on the left: ${S.numDisp} px of the image can never be matched.`
+      :`Grey photo = no reliable match on ${f2(holes,0)}% of the image. Raise P2: smoother. Lower P2: more noise. Striped band on the left: ${S.numDisp} px of the image can never be matched.`);
     setTimeout(()=>pi.style.width='0',450);
   }catch(e){cap.textContent='Error: '+e.message;}S.busy=false;},20);
 }
