@@ -571,7 +571,7 @@ ol.do li.ok{color:var(--dim)}ol.do li.ok:before{content:"\2713";background:rgba(
         </button>
         <button class="gate" id="gateReal">
           <div class="art" id="artReal"></div><div class="scrim"></div>
-          <div class="txt"><h2>Real Data</h2><p>Three real stereo sensors: a robotaxi on the road, an off-road robot in tall grass, and thermal cameras in a forest at night. Their calibration is fixed and their images are yours to solve.</p></div>
+          <div class="txt"><h2>Real Data</h2><p>Three real stereo sensors: a robotaxi on the road, an off-road robot in tall grass, and a thermal stereo drone built for fire and smoke. Their calibration is fixed and their images are yours to solve.</p></div>
         </button>
       </div>
 
@@ -695,7 +695,7 @@ const RIGS={
   rellis:{name:'RELLIS-3D',tag:'off-road robot · forest',f:645.21,b:0.2499,W:800,H:592,camH:1.30,env:'forest',platform:'ugv',
     src:'nerian_camera_info.yaml',camName:'Nerian Karmin2',sensor:'Nerian Karmin2 (e2v EV76C570)',vehicle:'Clearpath Warthog',
     srcLong:'RELLIS-3D paper (arXiv 2011.12954) and nerian_camera_info.yaml'},
-  fire:{name:'FIReStereo',tag:'thermal \u00b7 night \u00b7 winter forest',f:406.33,b:0.24585,W:640,H:512,camH:1.3,env:'night',platform:null,   // camH: about 1.1 to 1.6 m, estimated from the ground slope in the rectified pairs
+  fire:{name:'FIReStereo',tag:'drone \u00b7 thermal \u00b7 fire',f:406.33,b:0.24585,W:640,H:512,camH:1.3,env:'fire',platform:'drone',   // camH: about 1.1 to 1.6 m, estimated from the ground slope in the rectified pairs
     src:'firestereo.yaml',camName:'FLIR Boson+ 640 (thermal)',sensor:'2 \u00d7 FLIR Boson+ 640 thermal, 4.9 mm',vehicle:'drone (UAV), also handheld',
     srcLong:'FIReStereo paper (arXiv 2409.07715) and firestereo.yaml'},
   custom:{name:'Your rig',tag:'type your own calibration',f:700,b:0.30,W:1280,H:720,camH:1.5,env:'lab',platform:'ugv',
@@ -1046,11 +1046,11 @@ function envForest(){
 /* toned fire */
 function envFire(){
   scene.fog=new THREE.Fog(0x5a2a18,24,130);
-  amb.color.setHex(0xd88a52);amb.intensity=.34;key.color.setHex(0xd8702c);key.intensity=.42;key.position.set(-6,16,-12);
+  amb.color.setHex(0xe8a070);amb.intensity=.55;key.color.setHex(0xf08a40);key.intensity=.65;key.position.set(-6,16,-12);
   const r=rng(9),G=envG;
-  const ash=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({map:tex('#150d08',['#2a160c','#080503'],1600,40),roughness:1}));
+  const ash=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({map:tex('#3b2418',['#4c2e1c','#26150c'],1600,40),roughness:1}));
   ash.rotation.x=-Math.PI/2;G.add(ash);
-  const char=new THREE.MeshStandardMaterial({color:0x0f0b08,roughness:1});
+  const char=new THREE.MeshStandardMaterial({color:0x2a1d16,roughness:1});
   const flame=[0xd8722a,0xe0954a].map(c=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.6}));
   const tg=new THREE.CylinderGeometry(.13,.26,1,6),fg=new THREE.ConeGeometry(1,1,6);
   for(let i=0;i<40;i++){const x=(r()-.5)*54,z=-4-r()*90;
@@ -3278,7 +3278,7 @@ function renderPicker(){
   const tiles=[
     {k:'kitti',env:'road',title:'KITTI',desc:'A robotaxi on tarmac. Clean edges, the friendly case.',spec:'b 0.54 m · f 721 px · 1242×375'},
     {k:'rellis',env:'forest',title:'RELLIS-3D',desc:'An off-road robot in tall grass, where nothing has a clean edge.',spec:'b 0.25 m · f 645 px · 800×592'},
-    {k:'fire',env:'night',title:'FIReStereo',desc:'Two thermal cameras at night in a snowy forest. We rectified these frames ourselves, so far depths are approximate.',spec:'b 0.246 m \u00b7 f 406 px \u00b7 640\u00d7512'},
+    {k:'fire',env:'fire',title:'FIReStereo',desc:'A thermal stereo drone built for fire and smoke. We rectified these frames ourselves, so far depths are approximate.',spec:'b 0.246 m \u00b7 f 406 px \u00b7 640\u00d7512'},
     {k:'custom',env:'lab',title:'Your own rig',desc:'Type any baseline and focal length and bring your own pair.',spec:'you decide'}
   ];
   el.innerHTML=tiles.map(t=>`<button class="quad" data-k="${t.k}">
