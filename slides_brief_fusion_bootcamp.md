@@ -51,7 +51,7 @@ Mark I on cmht-dusk-02.
    - Camera: class and direction. Very good angle, poor distance (the distance comes from where the
      box touches the road, and far away one pixel is meters).
 4. **Decision 1, WHICH sensors**. Demo, each sensor alone into the Kalman filter, dusk-02: LiDAR
-   detector 0.24 m, RADAR 1.95 m, camera 2.55 m [verify].
+   detector 0.24 m, RADAR 1.95 m, camera 2.55 m [measured 9 Nov].
 5. **Decision 2, WHY fuse**: competitive (two sensors confirm each other: fewer false detections,
    and a rule for disagreements), complementary (see more), coordinated (create a measurement no
    sensor has alone).
@@ -59,23 +59,23 @@ Mark I on cmht-dusk-02.
    Drop it 0.96 m [measured 9 Nov]. Keeping single-sensor objects keeps the ghosts; dropping them
    loses an object only one sensor sees.
 7. **Demo, coordinated**: the camera's direction and the RADAR's distance make one measurement
-   ("RADAR along camera"): camera + RADAR fused in the image, 0.59 m, no LiDAR [verify].
+   ("RADAR along camera"): camera + RADAR fused in the image, 0.59 m, no LiDAR [measured 9 Nov].
 8. **Decision 3, WHEN do the sensors meet**: early (raw data merged before any detection), mid
    (features meet in a shared bird's eye view grid, BEVFusion), late (each sensor detects alone, the
    objects are merged at the end). Note from the article: projecting LiDAR points into camera boxes
    is often called early fusion but is a mix of early and late.
 9. **Demo, early / mid / late** on dusk-02: Merge & Cluster 0.84 m [measured 9 Nov], BEVFusion
-   0.23 m [verify], Box Matching 64.4 m [measured 9 Nov].
+   0.23 m [measured 9 Nov], Box Matching 64.4 m [measured 9 Nov].
 10. **Decision 4, WHERE do they meet**: in the image (reuse 2D detectors, depth is ambiguous), in 3D
     (real distances, camera boxes less precise), in the feature space (inside the network, nothing
     thrown away, hard to debug).
 11. **Demo, image vs ground**: camera + RADAR fused in the image (ROI) 0.59 m, on the ground
-    (distance match) 1.20 m [verify].
+    (distance match) 1.20 m [measured 9 Nov].
 12. **Decision 5, HOW is it done**: rule-based (every step written by hand, easier to certify),
     hybrid (a network understands each sensor, geometry fuses them: PointPainting), learned
     (BEVFusion, end-to-end).
 13. **Demo, how**: our rule pipelines (Merge & Cluster 0.84 m), PointPainting 0.88 m (hybrid)
-    [measured 9 Nov], BEVFusion 0.23 m (learned) [verify].
+    [measured 9 Nov], BEVFusion 0.23 m (learned) [measured 9 Nov].
 14. **No architecture wins everywhere**: dusk-01 Merge & Cluster 6.83 m vs Box Matching 1.00 m;
     dusk-02 0.84 m vs 64.4 m [measured 9 Nov]. The ranking flips from one scene to the next. You must
     test.
@@ -98,7 +98,7 @@ harmless or can ruin the track, and the difference is association.
    low speed and wrong on the highway (median error 12.4 m/s on dusk-04, 22.5 m/s on dusk-03)
    (docs/cmht.md).
 3. **When clustering helps**: dusk-03, the truck at 40 m: LiDAR detector into the filter 21.5 m
-   (followed 19 % of the time), cluster + fit box 6.25 m [verify]. TransFusion-L gives the truck
+   (followed 19 % of the time), cluster + fit box 6.25 m [measured 9 Nov]. TransFusion-L gives the truck
    8.6 m of length against 5.6 m labelled (tests).
 4. **Clustering's own failures**: vegetation, rails and walls make false boxes: 10.9 extra boxes per
    image, 4.3 after filtering by point density, shape, height and ground contact (classical detector,
@@ -113,7 +113,7 @@ harmless or can ruin the track, and the difference is association.
    [measured 9 Nov].
 7. **RADAR clutter**: walls, guardrails and parked cars return many points. "Filter static" removes
    them by speed, and fails when the target stops: dusk-01, RADAR into the filter 12.4 m, with Filter
-   static 138.8 m [verify].
+   static 138.8 m [measured 9 Nov].
 8. **Measuring a detector**: recall at 2 m, position error, false detections (with incomplete labels,
    false detections are only an upper bound).
 
