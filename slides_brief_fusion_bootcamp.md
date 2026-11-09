@@ -21,8 +21,10 @@ slide needs something missing, leave a placeholder and ask Jeremy.
 - **The data**: CMHT Autonomous Dataset (McMaster University, CC0 1.0). Four scenes at dusk:
   cmht-dusk-01 (a car 8 to 24 m away, it stops at one point), cmht-dusk-02 (a car at 11 to 14 m/s,
   14 to 25 m away), cmht-dusk-03 (a truck 30 to 50 m away at 23 to 28 m/s), cmht-dusk-04 (a car).
-  Sensors: a Velodyne HDL-32E LiDAR (about 9.3 Hz), one 4D imaging RADAR (Retina-4FN), one front
-  camera (1280 x 720, 11 degrees down, sees the hood).
+  Sensors: a Velodyne HDL-32E LiDAR (9.4 to 9.9 Hz measured on the scenes, with dropped sweeps),
+  one 4D imaging RADAR (Retina-4FN, about 600 points per frame, azimuth -48 to +44 degrees
+  measured), one front camera (1280 x 720, 82 x 52 degrees from K, looks 8.7 degrees below the
+  LiDAR's axis, sees our hood).
 - **The score everywhere**: the position RMSE. At each instant with a ground-truth label, the
   distance between the filter's estimated position and the true center of the target, on the ground;
   squared, averaged over the scene, square root. In meters.
@@ -30,9 +32,65 @@ slide needs something missing, leave a placeholder and ask Jeremy.
 - **Writing rules**: English. No em dashes. No one-word punch sentences. No "Not X. Not Y." lines.
   Plain, concrete sentences.
 
+Figures: `slides_figures/` holds 15 figures made from the real data (the raw CMHT frames and the
+course's cache), the same ones the students see in the app under Settings (⋯) → **Data
+Preparation**. Use them as they are; section 1 says which figure goes with which day. Do not redraw
+them with other numbers.
+
 Number tags: **[app]** = shown or tested in the software today; **[measured 9 Nov]** = measured on the
 current version; **[verify]** = measured on 2 or 3 Nov, before the last versions: check in the app
 before putting it on a slide.
+
+---
+
+## 1. The Data Preparation figures, and where each one goes
+
+What the students have in the app (Settings → Data Preparation): five tabs (The dataset, The
+sensors, The preparation, The detectors, The errors), 18 slides. The slides of the bootcamp should
+send the students there rather than repeat it; the figures can be reused on the theory slides.
+
+| Figure | What it shows | Key numbers [app] | Day |
+|---|---|---|---|
+| `dataset_frame.jpg` | Frame 1480 as downloaded: camera image, LiDAR sweep (coloured by z), RADAR points (coloured by raw Doppler) | 47,386 LiDAR points, 810 RADAR points | 1, 3 |
+| `scenes.jpg` | The 4 scenes: a camera image and the paths of our car and of the target | 20.7, 15.6, 19.0, 15.6 s | 1 |
+| `rig.png` | Top view: fields of view to scale (farthest point in 9 raw frames, no crop), and the sensors' positions from the calibration files | LiDAR 360°, 106 m; RADAR -48° to +44°, 114 m; camera 82°, 0.16 m ahead, 0.21 m right, 0.15 m below the LiDAR | 1, 3 |
+| `timeline.png` | The samples of each sensor on their own clock, a dropped LiDAR sweep; histogram of the LiDAR intervals | median 100 ms; 2.9 % over 150 ms; longest 0.29 s | 4 |
+| `odometry.png` | Our path from KISS-ICP on cmht-dusk-02 and our speed | check against the RADAR: 0.25, 0.36, 0.41, 0.73 m/s RMS (scenes 01 to 04) | 3 |
+| `ground.png` | Side view before (LiDAR frame, 1.66 m up, tilted) and after (levelled on the road, ground removed) | | 3 |
+| `calibration.jpg` | LiDAR points on three poles, with the given calibration and with the refined one | given: 15 to 25 px off; refined by +0.23°, -0.40°, +0.16° | 3 |
+| `radar_doppler.png` | RADAR points coloured by raw Doppler, then by the compensated range rate (cmht-dusk-04, frame 1700) | static world -18.5 → 0.1 m/s; the target car 1.8 → 22.6 m/s | 4 |
+| `labels.png` | Truck 32 (cmht-dusk-03, frame 3420): the downloaded label floats 3.5 m in front of the truck; the corrected label sits on its points | | 2, 8 |
+| `lidar_detector.png` | TransFusion-L boxes (class, score) against the corrected labels, dusk-02 and dusk-03 | the truck scored 0.20 | 2 |
+| `camera_detector.jpg` | D-FINE-X as it comes out (10 boxes, two on our hood) and after score ≥ 0.3, NMS 0.45 and the hood rule (5 boxes) | | 2 |
+| `segmentation.jpg` | A camera image and Mask2Former's class map; the hood has no class | | 2 |
+| `rms_mae.png` | Histogram of 19,676 RADAR range-rate errors (calibration segments) with RMS, MAE and robust σ | RMS 3.16, MAE 1.13, robust σ 0.68 m/s; the 2.5 % of points off by more than 5 m/s make 86 % of the sum of squares; without them the RMS is 1.19 m/s | 8 |
+| `radar_errors.png` | Histograms of the RADAR's range error and offset across the line of sight, same points | range: mean -0.38, RMS 1.74 m; across: mean -0.26, RMS 1.07 m | 8, 9 |
+| `lidar_error_range.png` | TransFusion-L box centre error against the range to the target, 4 scenes | up to 30 m (493 sweeps): RMS 0.31 m in 2D, i.e. 0.22 m per axis; beyond 30 m the truck, 1.5 to 4 m | 2, 8 |
+
+Formulas shown in the app, which the slides can reuse:
+- Projection: [u, v, 1]ᵀ ∝ K [R | t] [x, y, z, 1]ᵀ, with K = [[738.3, 0, 619.2], [0, 737.8, 371.0], [0, 0, 1]].
+- Doppler: a static point reads v_r = -u · v_ego, so the range rate over the ground is ṙ = v_r + u · v_ego.
+- Errors: e_k = x̂_k - x_k; bias = mean(e); RMSE = sqrt(mean(e²)); MAE = mean(|e|);
+  σ_robust = 1.4826 · median|e - median(e)|.
+- The LiDAR's R from a published mean error: for a 2D Gaussian error of σ per axis,
+  E‖e‖ = σ·sqrt(π/2), so σ = 0.28 / sqrt(π/2) = 0.22 m.
+
+What the preparation did, in the app's words (for a slide or a reference page):
+1. Our motion: KISS-ICP (Vizzo et al., 2023), map voxels 0.8 m, points 3 to 80 m, deskew off,
+   constant-velocity prior scaled by each real time step, first velocity from the RADAR's Doppler.
+2. The road: RANSAC plane 4 to 20 m around the car (inliers within 8 cm), z = 0 on the road under
+   the car at each sweep (dusk-03 climbs 11.8 m); ground points (under 0.3 m above the local ground)
+   removed.
+3. The camera: the given extrinsic turned by +0.23°, -0.40°, +0.16°, kept only because it improved
+   four criteria on held-out frames.
+4. The RADAR: our velocity from the RADAR itself (RANSAC, 200 tries of 3 points, inliers within
+   0.25 m/s), Doppler compensated; every point kept, with its height; one detection per point.
+5. The labels: height smoothed over ±0.5 s, one size per object, the box moved so its visible faces
+   lie on the LiDAR points (truck 32: +3.71 m → -0.03 m).
+6. The detectors, run once on Kaggle: TransFusion-L (score ≥ 0.1), D-FINE-X (score ≥ 0.3, NMS 0.45,
+   hood boxes dropped), Mask2Former (hood masked).
+
+The 80 m crop exists only for the viewer's cloud: do not present it as a sensor range.
 
 ---
 
@@ -144,13 +202,13 @@ Format: give the formula and let them code it, or give the code and let them der
    height in the merged cloud (dusk-03: 2.50 m vs 2.97 m) [measured 9 Nov].
 8. **Calibration**: check it by projecting LiDAR and RADAR onto the image (poles and traffic lights
    are the best witnesses). A rotation error is constant, a position error grows close by, a lens
-   error grows at the edges. The dataset's calibration was off by about 1.5 degrees; ours is better
-   but still off by up to 1 degree at the sides. At 25 m, 1 degree is 0.4 m to the side [app, Reactor
+   error grows at the edges. The dataset's calibration put the poles' points 15 to 25 px beside the
+   poles (figure `calibration.jpg`); ours turns it by +0.23°, -0.40°, +0.16° and is still off by up
+   to 1 degree at the left edge. At 25 m, 1 degree is 0.4 m to the side [app, Reactor
    step Run 4].
-9. **How the dataset was built** (for a reference file, not necessarily slides): our car's motion by
-   LiDAR odometry (KISS-ICP) started from the RADAR's speed; the road levelled (LiDAR 1.66 m high,
-   tilted 2.5 degrees); the labels recentred on the LiDAR points; keyframes at every LiDAR sweep.
-   Source: docs/guide/data.md.
+9. **How the dataset was built**: send the students to Settings → Data Preparation (section 1
+   of this brief). On a slide: `calibration.jpg` (before / after on the poles) and `rig.png`
+   (positions from the calibration files).
 
 ---
 
@@ -171,8 +229,9 @@ RADAR's Doppler is only the radial speed; sensors never measure at the same inst
 5. **The Doppler is radial** (the key slide of the day): the RADAR measures only the speed along its
    line of sight. A car crossing in front of you has almost no radial speed. Visual: the velocity
    vector and its projection on the line of sight.
-6. **Compensating our own motion**: the measured speed includes ours, so before compensation the walls
-   seem to drive at -23 m/s; removing our speed brings the scenery to 0.
+6. **Compensating our own motion**: the measured speed includes ours. Figure `radar_doppler.png`
+   (dusk-04, frame 1700): before, the static world reads -18.5 m/s and the target car 1.8 m/s; after
+   ṙ = v_r + u · v_ego, the world reads 0.1 m/s and the car 22.6 m/s [app].
 7. **Several RADAR points on one object**: which one gives the speed: the nearest to the center, the
    mean or the median (the median resists outliers).
 8. **Time**: the LiDAR, RADAR and camera never measure at the same instant. The RADAR points are moved
@@ -220,9 +279,12 @@ wrong about its own precision.
    car's center: 1.74 m in range, 3.16 m/s in Doppler (RMS) [app, Reactor step Run 3; docs].
 9. **RMSE vs MAE**: RMSE = sqrt(mean(e²)), MAE = mean(|e|). Same σ for clean bell-shaped noise; with
    outliers the RMSE explodes. Example: nine errors of 0.5 m/s and one of 10: RMSE 3.2, MAE x 1.25
-   = 1.8. The RADAR's Doppler on the calibration segments: RMS 3.16 m/s, MAE-based 1.41 m/s, robust
-   (median-based) 0.68 m/s; 18 % of the points are outliers (scenery or misplaced points) [measured 9
-   Nov]. The LiDAR's R (0.22 m) comes from TransFusion-L's published mATE, a mean error.
+   = 1.8. The RADAR's Doppler on the calibration segments (figure `rms_mae.png`, 19,676 points):
+   RMS 3.16 m/s, MAE 1.13 m/s, robust (median-based) σ 0.68 m/s. The 2.5 % of points off by more
+   than 5 m/s make 86 % of the sum of squares; without them the RMS is 1.19 m/s [app]. "MAE-based
+   1.41 m/s" elsewhere in this brief is the MAE turned into a Gaussian σ (1.13 x sqrt(π/2)); say
+   which one a slide shows. The LiDAR's R (0.22 m) comes from TransFusion-L's published mATE, a mean
+   error (figure `lidar_error_range.png` checks it on the scenes: 0.31 m in 2D up to 30 m).
 
 ### Day 9: Advanced Kalman Filters
 1. **Why an EKF**: the RADAR measures range, bearing and range rate, non linear in the state. The
@@ -275,5 +337,8 @@ wrong about its own precision.
 
 ## Open points for Jeremy before the slides are final
 - Every [verify] number must be re-measured on the current version.
-- The datasheet values, Kaggle notebook and dataset construction are documented in the app's
-  repository (docs/guide/, docs/cmht.md) but are not yet visible to students in the hosted app.
+- The dataset construction, the calibration files and the datasheet values are now visible to
+  students (Settings → Data Preparation). The Kaggle notebook is not.
+- Day 9 item 5 says the RADAR's points sit about 1.25 m short of the car's centre (Reactor, Run 3);
+  the calibration segments give a mean range error of -0.38 m with two groups of points (figure
+  `radar_errors.png`). Both are measured, on different data: check which one the slide needs.
